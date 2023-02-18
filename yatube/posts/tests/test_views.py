@@ -10,6 +10,7 @@ POSTS_2_PAGE = 3
 
 
 class ViewsTest(TestCase):
+    """Тестирование Views."""
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -115,11 +116,11 @@ class ViewsTest(TestCase):
     def test_create_post_show_correct_context(self):
         """Шаблон create_post сформирован с правильным контекстом."""
         response = self.authorized_client.get(reverse("posts:post_create"))
-        form_fields = {
-            "text": forms.fields.CharField,
-            "group": forms.fields.ChoiceField,
-        }
-        for value, expected in form_fields.items():
+        form_fields = [
+            ("text", forms.fields.CharField),
+            ("group", forms.fields.ChoiceField),
+        ]
+        for value, expected in form_fields:
             with self.subTest(value=value):
                 form_field = response.context.get("form").fields.get(value)
                 self.assertIsInstance(
@@ -167,6 +168,7 @@ class ViewsTest(TestCase):
 
 
 class PaginatorViewsTest(TestCase):
+    """Тестирование паджинатора."""
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -189,7 +191,7 @@ class PaginatorViewsTest(TestCase):
         cls.client = Client()
 
     def test_correct_page_context(self):
-        """Тестирование паджинатора"""
+        """Тестирование паджинатора."""
 
         pages = [
             reverse("posts:index"),

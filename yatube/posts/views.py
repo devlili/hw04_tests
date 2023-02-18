@@ -5,19 +5,21 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .forms import PostForm
 from .models import Group, Post, User
 
-POSTS_ON_PAGES = 10
+POSTS_PER_PAGE = 10
 
 
 def make_page(request, posts):
-    paginator = Paginator(posts, POSTS_ON_PAGES)
+    """Паджинатор - разбивка на страницы."""
+    paginator = Paginator(posts, POSTS_PER_PAGE)
     page_number = request.GET.get("page")
     return paginator.get_page(page_number)
 
 
 def index(request):
+    """Главная страница."""
     template = "posts/index.html"
     title = "Последние обновления на сайте"
-    posts = Post.objects.all()
+    posts = Post.objects.select_related("author", "group")
     page_obj = make_page(request, posts)
     context = {
         "title": title,
@@ -27,10 +29,11 @@ def index(request):
 
 
 def group_posts(request, slug):
+    """Страница постов одной группы."""
     template = "posts/group_list.html"
     group = get_object_or_404(Group, slug=slug)
     title = f'Записи сообщества "{group}"'
-    posts = group.posts.all()
+    posts = group.posts.select_related("author", "group")
     page_obj = make_page(request, posts)
     context = {
         "title": title,
@@ -41,9 +44,10 @@ def group_posts(request, slug):
 
 
 def profile(request, username):
+    """Страница профайла пользователя."""
     template = "posts/profile.html"
     user = get_object_or_404(User, username=username)
-    post_list = user.posts.all()
+    post_list = user.posts.select_related("author", "group")
     page_obj = make_page(request, post_list)
     context = {
         "page_obj": page_obj,
@@ -53,6 +57,7 @@ def profile(request, username):
 
 
 def post_detail(request, post_id):
+    """Страница поста."""
     template = "posts/post_detail.html"
     user_post = get_object_or_404(Post, id=post_id)
     title = f"Пост {user_post}"
@@ -65,6 +70,7 @@ def post_detail(request, post_id):
 
 @login_required
 def post_create(request):
+    """Страница добавления нового поста."""
     template = "posts/create_post.html"
     title = "Новый пост"
     button = "Добавить"
@@ -84,6 +90,7 @@ def post_create(request):
 
 @login_required
 def post_edit(request, post_id):
+    """Страница редактирования поста."""
     template = "posts/create_post.html"
     post = get_object_or_404(Post, id=post_id)
     if post.author != request.user:

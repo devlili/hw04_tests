@@ -5,6 +5,7 @@ from ..models import Group, Post, User
 
 
 class FormTest(TestCase):
+    """Тестирование форм."""
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -14,7 +15,9 @@ class FormTest(TestCase):
             slug="test-slug",
             description="Тестовое описание",
         )
-        cls.post = Post.objects.create(text="Тестовый пост", author=cls.user)
+        cls.post = Post.objects.create(
+            text="Тестовый пост", author=cls.user, group=cls.group
+        )
 
     def setUp(self):
         self.authorized_client = Client()
