@@ -1,33 +1,23 @@
 from django.test import TestCase
 
-from ..models import Group, Post, User
+from ..models import Group, Post
 
 
 class ModelTest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = User.objects.create_user(username="Pushkin")
-        cls.group = Group.objects.create(
-            title="Тестовая группа",
-            slug="test-slug",
-            description="Тестовое описание",
-        )
-        cls.post = Post.objects.create(
-            author=cls.user,
-            text="Тестовый пост",
-        )
+    """Тестирование моделей."""
 
     def test_models_have_correct_object_names(self):
         """Проверяем, что у моделей корректно работает __str__."""
 
-        group = ModelTest.group
-        post = ModelTest.post
-        expected_object_name = {
-            group.title: str(group),
-            post.text: str(post),
-        }
-        for value, expected in expected_object_name.items():
+        group = Group(title="Тестовая группа")
+        long_post = Post(text="Это очень объемный пост")
+        short_post = Post(text="Короткий пост")
+        expected_object_name = [
+            (str(group), "Тестовая группа"),
+            (str(long_post), "Это очень объем"),
+            (str(short_post), "Короткий пост"),
+        ]
+        for value, expected in expected_object_name:
             with self.subTest(value=value):
                 self.assertEqual(
                     value,

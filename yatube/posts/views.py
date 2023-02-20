@@ -1,18 +1,9 @@
+from core.utils import paginate
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import PostForm
 from .models import Group, Post, User
-
-POSTS_PER_PAGE = 10
-
-
-def make_page(request, posts):
-    """Паджинатор - разбивка на страницы."""
-    paginator = Paginator(posts, POSTS_PER_PAGE)
-    page_number = request.GET.get("page")
-    return paginator.get_page(page_number)
 
 
 def index(request):
@@ -20,7 +11,7 @@ def index(request):
     template = "posts/index.html"
     title = "Последние обновления на сайте"
     posts = Post.objects.select_related("author", "group")
-    page_obj = make_page(request, posts)
+    page_obj = paginate(request, posts)
     context = {
         "title": title,
         "page_obj": page_obj,
@@ -34,7 +25,7 @@ def group_posts(request, slug):
     group = get_object_or_404(Group, slug=slug)
     title = f'Записи сообщества "{group}"'
     posts = group.posts.select_related("author", "group")
-    page_obj = make_page(request, posts)
+    page_obj = paginate(request, posts)
     context = {
         "title": title,
         "group": group,
@@ -48,7 +39,7 @@ def profile(request, username):
     template = "posts/profile.html"
     user = get_object_or_404(User, username=username)
     post_list = user.posts.select_related("author", "group")
-    page_obj = make_page(request, post_list)
+    page_obj = paginate(request, post_list)
     context = {
         "page_obj": page_obj,
         "author": user,
