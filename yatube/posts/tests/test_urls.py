@@ -16,7 +16,6 @@ class URLTests(TestCase):
         cls.group = Group.objects.create(
             title="Тестовая группа",
             slug="test-slug",
-            description="Тестовое описание",
         )
         cls.post = Post.objects.create(
             author=cls.user,

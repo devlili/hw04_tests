@@ -16,7 +16,6 @@ class FormTest(TestCase):
         cls.group = Group.objects.create(
             title="Тестовая группа",
             slug="test-slug",
-            description="Тестовое описание",
         )
         cls.post = Post.objects.create(
             text="Тестовый пост", author=cls.user, group=cls.group
@@ -45,7 +44,9 @@ class FormTest(TestCase):
 
     def test_post_edit(self):
         """Валидная форма редактирует запись в Post."""
-        form_data = {"text": "Редактированный пост"}
+        old_text = self.post
+        group2 = Group.objects.create(title="Тестовая группа2", slug="slug-2")
+        form_data = {"text": "Редактированный пост", "group": group2.id}
         response = self.authorized_client.post(
             reverse(
                 "posts:post_edit",
@@ -55,15 +56,44 @@ class FormTest(TestCase):
             follow=True,
         )
         self.assertTrue(
-            Post.objects.filter(text="Редактированный пост").exists(),
+            Post.objects.filter(
+                text="Редактированный пост", group=group2.id
+            ).exists(),
             "Запись не редактируется",
         )
         self.assertEqual(
             response.status_code, HTTPStatus.OK, "Страница недоступна"
         )
+        self.assertNotEqual(
+            old_text.text,
+            form_data["text"],
+            "Пользователь не может изменить содержание поста",
+        )
+        self.assertNotEqual(
+            old_text.group,
+            form_data["group"],
+            "Пользователь не может изменить группу поста",
+        )
+
+    def test_group_null(self):
+        """Проверка, что группу можно не указывать"""
+        old_text = self.post
+        form_data = {"text": "Редактированный пост", "group": ""}
+        response = self.authorized_client.post(
+            reverse("posts:post_edit", kwargs={"post_id": self.post.pk}),
+            data=form_data,
+            follow=True,
+        )
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertNotEqual(
+            old_text.group,
+            form_data["group"],
+            "Пользователь не может оставить группу пустым",
+        )
 
     def test_guest_client_cant_create_edit_post(self):
         """Неавторизованный клиент не может создать/редактировать пост"""
+        posts_count = Post.objects.count()
         urls = (
             reverse(
                 "posts:post_edit",
@@ -75,5 +105,15 @@ class FormTest(TestCase):
         for url in urls:
             with self.subTest(url=url):
                 response = self.client.post(url, data={"text": "Чужой пост"})
-                self.assertEqual(response.status_code, HTTPStatus.FOUND)
+                self.assertNotEqual(
+                    response.status_code,
+                    HTTPStatus.OK,
+                    "Неавторизованный пользователь может создать/"
+                    " редактировать пост",
+                )
                 self.assertRedirects(response, f"{login}?next={url}")
+                self.assertNotEqual(
+                    Post.objects.count(),
+                    posts_count + 1,
+                    "Пост добавлен по ошибке неавторизованным пользователем",
+                )

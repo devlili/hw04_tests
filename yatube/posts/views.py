@@ -24,7 +24,7 @@ def group_posts(request, slug):
     template = "posts/group_list.html"
     group = get_object_or_404(Group, slug=slug)
     title = f'Записи сообщества "{group}"'
-    posts = group.posts.select_related("author", "group")
+    posts = group.posts.select_related("author")
     page_obj = paginate(request, posts)
     context = {
         "title": title,
@@ -37,12 +37,12 @@ def group_posts(request, slug):
 def profile(request, username):
     """Страница профайла пользователя."""
     template = "posts/profile.html"
-    user = get_object_or_404(User, username=username)
-    post_list = user.posts.select_related("author", "group")
+    author = get_object_or_404(User, username=username)
+    post_list = author.posts.select_related("group")
     page_obj = paginate(request, post_list)
     context = {
         "page_obj": page_obj,
-        "author": user,
+        "author": author,
     }
     return render(request, template, context)
 
