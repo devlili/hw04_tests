@@ -1,11 +1,7 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% block content %}
-  <h1 align="center">{{ title }}</h1><br>
+  <h1 align="center">{{ title }}</h1><br />
   {% for post in page_obj %}
     {% include 'includes/post.html' %}
-    {% if post.group %}   
-      <a href="{% url 'posts:group_list' post.group.slug %}">все записи группы</a>
-    {% endif %}
-    {% if not forloop.last %}<hr>{% endif %}
   {% endfor %}
 {% endblock %}

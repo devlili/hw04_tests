@@ -26,19 +26,19 @@ class URLTests(TestCase):
         cls.reverse_templates_names = {
             reverse("posts:index"): "posts/index.html",
             reverse(
-                "posts:group_list", kwargs={"slug": cls.group.slug}
+                "posts:group_list", args=(cls.group.slug,)
             ): "posts/group_list.html",
             reverse(
                 "posts:profile",
-                kwargs={"username": cls.user.username},
+                args=(cls.user.username,),
             ): "posts/profile.html",
             reverse(
                 "posts:post_detail",
-                kwargs={"post_id": cls.post.pk},
+                args=(cls.post.pk,),
             ): "posts/post_detail.html",
             reverse(
                 "posts:post_edit",
-                kwargs={"post_id": cls.post.pk},
+                args=(cls.post.pk,),
             ): "posts/create_post.html",
             reverse("posts:post_create"): "posts/create_post.html",
         }
@@ -74,7 +74,7 @@ class URLTests(TestCase):
         response = authorized_client.get(
             reverse(
                 "posts:post_edit",
-                kwargs={"post_id": self.post.pk},
+                args=(self.post.pk,),
             )
         )
         self.assertNotEqual(
@@ -90,7 +90,7 @@ class URLTests(TestCase):
         urls = (
             reverse(
                 "posts:post_edit",
-                kwargs={"post_id": self.post.pk},
+                args=(self.post.pk,),
             ),
             reverse("posts:post_create"),
         )

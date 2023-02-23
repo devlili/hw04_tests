@@ -2,7 +2,7 @@ from core.utils import paginate
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import PostForm
+from .forms import CommentForm, PostForm
 from .models import Group, Post, User
 
 
@@ -50,11 +50,15 @@ def profile(request, username):
 def post_detail(request, post_id):
     """Страница поста."""
     template = "posts/post_detail.html"
-    user_post = get_object_or_404(Post, id=post_id)
-    title = f"Пост {user_post}"
+    post = get_object_or_404(Post, id=post_id)
+    comments = post.comments.select_related("author")
+    title = f"Пост {post}"
+    form = CommentForm(request.POST or None)
     context = {
         "title": title,
-        "post": user_post,
+        "post": post,
+        "form": form,
+        "comments": comments,
     }
     return render(request, template, context)
 
@@ -65,7 +69,7 @@ def post_create(request):
     template = "posts/create_post.html"
     title = "Новый пост"
     button = "Добавить"
-    form = PostForm(request.POST or None)
+    form = PostForm(request.POST or None, files=request.FILES or None)
     if form.is_valid():
         post = form.save(commit=False)
         post.author = request.user
@@ -88,7 +92,9 @@ def post_edit(request, post_id):
         return redirect("posts:post_detail", post_id=post_id)
     title = "Редактировать запись"
     button = "Сохранить"
-    form = PostForm(request.POST or None, instance=post)
+    form = PostForm(
+        request.POST or None, files=request.FILES or None, instance=post
+    )
     context = {
         "form": form,
         "title": title,
@@ -97,4 +103,15 @@ def post_edit(request, post_id):
     if not form.is_valid():
         return render(request, template, context)
     form.save()
+    return redirect("posts:post_detail", post_id=post_id)
+
+
+@login_required
+def add_comment(request, post_id):
+    form = CommentForm(request.POST or None)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.author = request.user
+        comment.post = Post.objects.get(pk=post_id)
+        comment.save()
     return redirect("posts:post_detail", post_id=post_id)

@@ -1,15 +1,11 @@
-{% extends "base.html" %}
-{% block title %}Профайл пользователя {{ author.get_full_name }}{% endblock %}
+{% extends 'base.html' %}
+{% block title %}
+  Профайл пользователя {{ author.get_full_name }}
+{% endblock %}
 {% block content %}
-  <h1 align="center">Все посты пользователя {{ author.get_full_name }}</h1><br>
-  <h3>Всего постов: {{ author.posts.count }} </h3>
+  <h1 align="center">Все посты пользователя {{ author.get_full_name }}</h1><br />
+  <h3>Всего постов: {{ author.posts.count }}</h3>
   {% for post in page_obj %}
     {% include 'includes/post.html' %}
-    <a href="{% url 'posts:post_detail' post.pk %}">Подробная информация</a><br>
-    {% if post.group %}   
-      <a href="{% url 'posts:group_list' post.group.slug %}">Все записи группы</a>
-    {% endif %}
-    {% if not forloop.last %}<hr>{% endif %}
   {% endfor %}
 {% endblock %}
- 

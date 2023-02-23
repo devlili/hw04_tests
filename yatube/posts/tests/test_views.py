@@ -1,5 +1,10 @@
+import shutil
+import tempfile
+
 from django import forms
-from django.test import Client, TestCase
+from django.conf import settings
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from yatube.settings import POSTS_PER_PAGE
@@ -7,8 +12,10 @@ from yatube.settings import POSTS_PER_PAGE
 from ..models import Group, Post, User
 
 GAP = 3
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class ViewsTest(TestCase):
     """Тестирование Views."""
 
@@ -21,44 +28,31 @@ class ViewsTest(TestCase):
             slug="test-slug",
             description="Тестовое описание",
         )
+        small_gif = (
+            b"\x47\x49\x46\x38\x39\x61\x02\x00"
+            b"\x01\x00\x80\x00\x00\x00\x00\x00"
+            b"\xFF\xFF\xFF\x21\xF9\x04\x00\x00"
+            b"\x00\x00\x00\x2C\x00\x00\x00\x00"
+            b"\x02\x00\x01\x00\x00\x02\x02\x0C"
+            b"\x0A\x00\x3B"
+        )
+        uploaded = SimpleUploadedFile(
+            name="small.gif", content=small_gif, content_type="image/gif"
+        )
         cls.post = Post.objects.create(
             author=cls.user,
             text="Тестовый пост",
             group=cls.group,
+            image=uploaded,
         )
 
         cls.authorized_client = Client()
         cls.authorized_client.force_login(cls.user)
 
-    def test_pages_uses_correct_template(self):
-        """URL-адрес использует соответствующий шаблон."""
-        reverse_templates_names = {
-            reverse("posts:index"): "posts/index.html",
-            reverse(
-                "posts:group_list", kwargs={"slug": self.group.slug}
-            ): "posts/group_list.html",
-            reverse(
-                "posts:profile",
-                kwargs={"username": self.user.username},
-            ): "posts/profile.html",
-            reverse(
-                "posts:post_detail",
-                kwargs={"post_id": self.post.pk},
-            ): "posts/post_detail.html",
-            reverse(
-                "posts:post_edit",
-                kwargs={"post_id": self.post.pk},
-            ): "posts/create_post.html",
-            reverse("posts:post_create"): "posts/create_post.html",
-        }
-        for reverse_name, template in reverse_templates_names.items():
-            with self.subTest(reverse_name=reverse_name):
-                response = self.authorized_client.get(reverse_name)
-                self.assertTemplateUsed(
-                    response,
-                    template,
-                    f"{reverse_name} не соответствует шаблону {template}",
-                )
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def test_pages_show_correct_context(self):
         """Шаблоны index, group_list, profile сформированы
@@ -66,25 +60,25 @@ class ViewsTest(TestCase):
         """
         reverses = (
             reverse("posts:index"),
-            reverse("posts:group_list", kwargs={"slug": self.group.slug}),
+            reverse("posts:group_list", args=(self.group.slug,)),
             reverse(
                 "posts:profile",
-                kwargs={"username": self.user.username},
+                args=(self.user.username,),
             ),
         )
         for reverse_name in reverses:
             response = self.authorized_client.get(reverse_name)
             context = response.context["page_obj"][0]
-            global contexts
             contexts = {
                 context.text: self.post.text,
                 context.author: self.post.author,
                 context.group: self.post.group,
+                context.image: self.post.image,
             }
-            for context, expected in contexts.items():
-                with self.subTest(context=context):
+            for value, expected in contexts.items():
+                with self.subTest(value=value):
                     self.assertEqual(
-                        context,
+                        value,
                         expected,
                         "Шаблоны index, group_list, profile сформированы с"
                         " неправильным контекстом",
@@ -95,16 +89,23 @@ class ViewsTest(TestCase):
         response = self.authorized_client.get(
             reverse(
                 "posts:post_detail",
-                kwargs={"post_id": self.post.pk},
+                args=(self.post.pk,),
             )
         )
         context = response.context["post"]
-        for context, expected in contexts.items():
-            self.assertEqual(
-                context,
-                expected,
-                "Шаблон post_detail сформирован с неправильным контекстом",
-            )
+        contexts = {
+            context.text: self.post.text,
+            context.author: self.post.author,
+            context.group: self.post.group,
+            context.image: self.post.image,
+        }
+        for value, expected in contexts.items():
+            with self.subTest(value=value):
+                self.assertEqual(
+                    value,
+                    expected,
+                    "Шаблон post_detail сформирован с неправильным контекстом",
+                )
 
     def test_create_post_show_correct_context(self):
         """Шаблон create_post сформирован с правильным контекстом."""
@@ -112,6 +113,7 @@ class ViewsTest(TestCase):
         form_fields = [
             ("text", forms.fields.CharField),
             ("group", forms.fields.ChoiceField),
+            ("image", forms.fields.ImageField),
         ]
         for value, expected in form_fields:
             with self.subTest(value=value):
@@ -131,15 +133,15 @@ class ViewsTest(TestCase):
         )
         response_index = self.authorized_client.get(reverse("posts:index"))
         response_group = self.authorized_client.get(
-            reverse("posts:group_list", kwargs={"slug": f"{self.group.slug}"})
+            reverse("posts:group_list", args=(self.group.slug,))
         )
         response_group_2 = self.authorized_client.get(
-            reverse("posts:group_list", kwargs={"slug": f"{group_2.slug}"})
+            reverse("posts:group_list", args=(group_2.slug,))
         )
         response_profile = self.authorized_client.get(
             reverse(
                 "posts:profile",
-                kwargs={"username": f"{self.user.username}"},
+                args=(self.user.username,),
             )
         )
         index = response_index.context["page_obj"]
@@ -186,11 +188,11 @@ class Paginatorself(TestCase):
             reverse("posts:index"),
             reverse(
                 "posts:profile",
-                kwargs={"username": self.user.username},
+                args=(self.user.username,),
             ),
             reverse(
                 "posts:group_list",
-                kwargs={"slug": self.group.slug},
+                args=(self.group.slug,),
             ),
         ]
         for page in pages:
