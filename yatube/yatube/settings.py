@@ -36,10 +36,6 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
-    "posts.apps.PostsConfig",
-    "users.apps.UsersConfig",
-    "core.apps.CoreConfig",
-    "about.apps.AboutConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -47,6 +43,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "sorl.thumbnail",
+    "posts.apps.PostsConfig",
+    "users.apps.UsersConfig",
+    "core.apps.CoreConfig",
+    "about.apps.AboutConfig",
 ]
 
 MIDDLEWARE = [
@@ -150,3 +150,9 @@ EMAIL_FILE_PATH = os.path.join(BASE_DIR, "sent_emails")
 POSTS_PER_PAGE = 10
 
 CSRF_FAILURE_VIEW = "core.views.csrf_failure"
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}

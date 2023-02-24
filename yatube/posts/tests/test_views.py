@@ -3,6 +3,7 @@ import tempfile
 
 from django import forms
 from django.conf import settings
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -46,8 +47,11 @@ class ViewsTest(TestCase):
             image=uploaded,
         )
 
-        cls.authorized_client = Client()
-        cls.authorized_client.force_login(cls.user)
+    def setUp(self):
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+        cache.clear()
 
     @classmethod
     def tearDownClass(cls):
@@ -184,6 +188,7 @@ class Paginatorself(TestCase):
     def test_correct_page_context(self):
         """Тестирование паджинатора."""
 
+        cache.clear()
         pages = [
             reverse("posts:index"),
             reverse(

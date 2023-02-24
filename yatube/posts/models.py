@@ -12,7 +12,6 @@ class Group(models.Model):
     slug = models.SlugField(
         max_length=255,
         unique=True,
-        db_index=True,
         verbose_name="Адрес для страницы с группой",
         help_text=(
             "Укажите адрес для страницы группы. Используйте только "
@@ -32,7 +31,9 @@ class Post(models.Model):
     """Модель для постов."""
 
     text = models.TextField("Текст поста", help_text="Введите текст поста")
-    pub_date = models.DateTimeField("Дата публикации", auto_now_add=True)
+    pub_date = models.DateTimeField(
+        "Дата публикации", auto_now_add=True, db_index=True
+    )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -87,3 +88,27 @@ class Comment(models.Model):
 
     def __str__(self):
         return self.text[:15]
+
+
+class Follow(models.Model):
+    """Модель для подписки на авторов."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="follower",
+        verbose_name="Подписчик",
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="following",
+        verbose_name="Подписка на автора",
+    )
+
+    class Meta:
+        verbose_name = "Подписка"
+        verbose_name_plural = "Подписки"
+
+    def __str__(self):
+        return f"{self.author} подписчики: {self.user}"

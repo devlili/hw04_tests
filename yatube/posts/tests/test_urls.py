@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -102,6 +103,7 @@ class URLTests(TestCase):
 
     def test_urls_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
+        cache.clear()
         for address, template in self.reverse_templates_names.items():
             with self.subTest(address=address):
                 response = self.authorized_client.get(address)

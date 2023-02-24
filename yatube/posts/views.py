@@ -1,74 +1,69 @@
 from core.utils import paginate
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.cache import cache_page
 
 from .forms import CommentForm, PostForm
-from .models import Group, Post, User
+from .models import Follow, Group, Post, User
 
 
+@cache_page(20, key_prefix="index_page")
 def index(request):
     """Главная страница."""
-    template = "posts/index.html"
-    title = "Последние обновления на сайте"
     posts = Post.objects.select_related("author", "group")
     page_obj = paginate(request, posts)
     context = {
-        "title": title,
+        "title": "Последние обновления на сайте",
         "page_obj": page_obj,
     }
-    return render(request, template, context)
+    return render(request, "posts/index.html", context)
 
 
 def group_posts(request, slug):
     """Страница постов одной группы."""
-    template = "posts/group_list.html"
     group = get_object_or_404(Group, slug=slug)
-    title = f'Записи сообщества "{group}"'
     posts = group.posts.select_related("author")
     page_obj = paginate(request, posts)
     context = {
-        "title": title,
+        "title": f'Записи сообщества "{group}"',
         "group": group,
         "page_obj": page_obj,
     }
-    return render(request, template, context)
+    return render(request, "posts/group_list.html", context)
 
 
 def profile(request, username):
     """Страница профайла пользователя."""
-    template = "posts/profile.html"
     author = get_object_or_404(User, username=username)
     post_list = author.posts.select_related("group")
     page_obj = paginate(request, post_list)
+    user = request.user
+    following = user.is_authenticated and author.following.exists()
     context = {
         "page_obj": page_obj,
         "author": author,
+        "following": following,
     }
-    return render(request, template, context)
+    return render(request, "posts/profile.html", context)
 
 
 def post_detail(request, post_id):
     """Страница поста."""
-    template = "posts/post_detail.html"
     post = get_object_or_404(Post, id=post_id)
     comments = post.comments.select_related("author")
-    title = f"Пост {post}"
     form = CommentForm(request.POST or None)
     context = {
-        "title": title,
+        "title": f"Пост {post}",
         "post": post,
         "form": form,
         "comments": comments,
     }
-    return render(request, template, context)
+    return render(request, "posts/post_detail.html", context)
 
 
 @login_required
 def post_create(request):
     """Страница добавления нового поста."""
-    template = "posts/create_post.html"
-    title = "Новый пост"
-    button = "Добавить"
     form = PostForm(request.POST or None, files=request.FILES or None)
     if form.is_valid():
         post = form.save(commit=False)
@@ -76,32 +71,29 @@ def post_create(request):
         post.save()
         return redirect("posts:profile", username=post.author)
     context = {
-        "title": title,
-        "button": button,
+        "title": "Новый пост",
+        "button": "Добавить",
         "form": form,
     }
-    return render(request, template, context)
+    return render(request, "posts/create_post.html", context)
 
 
 @login_required
 def post_edit(request, post_id):
     """Страница редактирования поста."""
-    template = "posts/create_post.html"
     post = get_object_or_404(Post, id=post_id)
     if post.author != request.user:
         return redirect("posts:post_detail", post_id=post_id)
-    title = "Редактировать запись"
-    button = "Сохранить"
     form = PostForm(
         request.POST or None, files=request.FILES or None, instance=post
     )
     context = {
         "form": form,
-        "title": title,
-        "button": button,
+        "title": "Редактировать запись",
+        "button": "Сохранить",
     }
     if not form.is_valid():
-        return render(request, template, context)
+        return render(request, "posts/create_post.html", context)
     form.save()
     return redirect("posts:post_detail", post_id=post_id)
 
@@ -115,3 +107,31 @@ def add_comment(request, post_id):
         comment.post = Post.objects.get(pk=post_id)
         comment.save()
     return redirect("posts:post_detail", post_id=post_id)
+
+
+@login_required
+def follow_index(request):
+    user = request.user
+    authors = user.follower.values_list("author", flat=True)
+    posts_list = Post.objects.filter(author__id__in=authors)
+    page_obj = paginate(request, posts_list)
+    context = {
+        "title": "Избранные авторы",
+        "page_obj": page_obj,
+    }
+    return render(request, "posts/index.html", context)
+
+
+@login_required
+def profile_follow(request, username):
+    author = User.objects.get(username=username)
+    user = request.user
+    if author != user:
+        Follow.objects.get_or_create(user=user, author=author)
+    return redirect("posts:profile", username=username)
+
+
+@login_required
+def profile_unfollow(request, username):
+    Follow.objects.get(user=request.user, author__username=username).delete()
+    return redirect("posts:profile", username=username)
