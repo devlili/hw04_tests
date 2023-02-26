@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from yatube.settings import POSTS_PER_PAGE
 
-from ..models import Group, Post, User
+from ..models import Comment, Follow, Group, Post, User
 
 GAP = 3
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
@@ -46,6 +46,11 @@ class ViewsTest(TestCase):
             group=cls.group,
             image=uploaded,
         )
+        cls.comment = Comment.objects.create(
+            text="Тестовый комментарий",
+            post=cls.post,
+            author=cls.user,
+        )
 
     def setUp(self):
         self.authorized_client = Client()
@@ -62,6 +67,7 @@ class ViewsTest(TestCase):
         """Шаблоны index, group_list, profile сформированы
         с правильным контекстом.
         """
+
         reverses = (
             reverse("posts:index"),
             reverse("posts:group_list", args=(self.group.slug,)),
@@ -90,6 +96,7 @@ class ViewsTest(TestCase):
 
     def test_post_detail_show_correct_context(self):
         """Шаблон post_detail сформирован с правильным контекстом."""
+
         response = self.authorized_client.get(
             reverse(
                 "posts:post_detail",
@@ -113,6 +120,7 @@ class ViewsTest(TestCase):
 
     def test_create_post_show_correct_context(self):
         """Шаблон create_post сформирован с правильным контекстом."""
+
         response = self.authorized_client.get(reverse("posts:post_create"))
         form_fields = [
             ("text", forms.fields.CharField),
@@ -129,37 +137,112 @@ class ViewsTest(TestCase):
                 )
 
     def test_post_added_correctly(self):
-        """Пост при создании добавлен корректно"""
+        """Пост при создании добавлен корректно."""
+
+        reverses = (
+            reverse("posts:index"),
+            reverse("posts:group_list", args=(self.group.slug,)),
+            reverse(
+                "posts:profile",
+                args=(self.user.username,),
+            ),
+        )
+        for reverse_name in reverses:
+            response = self.authorized_client.get(reverse_name)
+            context = response.context["page_obj"]
+            with self.subTest(reverse_name=reverse_name):
+                self.assertIn(self.post, context, "Пост добавлен некорректно")
+
+    def test_post_not_in_another_group(self):
+        """Пост не попадает в группу, для которой не был предназначен."""
+
         group_2 = Group.objects.create(
             title="Тестовая группа 2",
             slug="test-slug2",
             description="Тестовое описание",
         )
-        response_index = self.authorized_client.get(reverse("posts:index"))
-        response_group = self.authorized_client.get(
-            reverse("posts:group_list", args=(self.group.slug,))
-        )
-        response_group_2 = self.authorized_client.get(
+        response = self.authorized_client.get(
             reverse("posts:group_list", args=(group_2.slug,))
         )
-        response_profile = self.authorized_client.get(
+        context = response.context["page_obj"]
+        self.assertNotIn(self.post, context, "Пост добавлен в другую группу")
+
+    def test_post_detail_show_comment(self):
+        """Комментарий виден на странице поста."""
+
+        response = self.authorized_client.get(
             reverse(
-                "posts:profile",
-                args=(self.user.username,),
+                "posts:post_detail",
+                args=(self.post.pk,),
             )
         )
-        index = response_index.context["page_obj"]
-        group = response_group.context["page_obj"]
-        another_group = response_group_2.context["page_obj"]
-        profile = response_profile.context["page_obj"]
-        self.assertIn(self.post, index, "Поста нет на главной странице")
+        comment = response.context["comments"]
         self.assertIn(
-            self.post, group, "Поста нет на странице выбранной группы"
+            self.comment,
+            comment,
+            "Комментария нет на странице поста",
         )
-        self.assertIn(self.post, profile, "Поста нет в профайле пользователя")
-        self.assertNotIn(
-            self.post, another_group, "Пост попал в другую группу"
+
+    def test_cache(self):
+        """Тестирование кэша главной страницы."""
+
+        response = self.authorized_client.get(reverse("posts:index"))
+        Post.objects.get(id=1).delete()
+        new_response = self.authorized_client.get(reverse("posts:index"))
+        self.assertEqual(response.content, new_response.content)
+        cache.clear()
+        response_after_clear = self.authorized_client.get(
+            reverse("posts:index")
         )
+        self.assertNotEqual(response.content, response_after_clear.content)
+
+    def test_authorized_user_can_follow_unfollow(self):
+        """Авторизованный пользователь может подписываться на других
+        пользователей и удалять их из подписок.
+        """
+
+        author = User.objects.create_user(username="Автор")
+        user = self.user
+        self.authorized_client.get(
+            reverse(
+                "posts:profile_follow", kwargs={"username": author.username}
+            )
+        )
+        self.assertTrue(
+            Follow.objects.filter(user=user, author=author).exists()
+        )
+        self.authorized_client.get(
+            reverse(
+                "posts:profile_unfollow", kwargs={"username": author.username}
+            )
+        )
+        self.assertFalse(
+            Follow.objects.filter(user=user, author=author).exists()
+        )
+
+    def test_post_appears_in_feed(self):
+        """Новая запись пользователя появляется в ленте тех, кто на него
+        подписан и не появляется в ленте тех, кто не подписан.
+        """
+
+        author = User.objects.create_user(username="Автор")
+        user1 = self.user
+        user2 = User.objects.create_user(username="Другой автор")
+        self.authorized_client.get(
+            reverse(
+                "posts:profile_follow", kwargs={"username": author.username}
+            )
+        )
+        authors1 = Follow.objects.values_list("author").filter(user=user1)
+        post_list1 = Post.objects.filter(author__in=authors1)
+        post1 = Post.objects.create(
+            author=author,
+            text="Тестовый текст",
+        )
+        self.assertIn(post1, post_list1)
+        authors2 = Follow.objects.values_list("author").filter(user=user2)
+        post_list2 = Post.objects.filter(author__in=authors2)
+        self.assertNotIn(post1, post_list2)
 
 
 class Paginatorself(TestCase):

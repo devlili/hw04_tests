@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from ..models import Group, Post
+from ..models import Comment, Follow, Group, Post
 
 
 class ModelTest(TestCase):
@@ -12,10 +12,12 @@ class ModelTest(TestCase):
         group = Group(title="Тестовая группа")
         long_post = Post(text="Это очень объемный пост")
         short_post = Post(text="Короткий пост")
+        comment = Comment(text="Тестовый комментарий")
         expected_object_name = [
             (str(group), "Тестовая группа"),
             (str(long_post), "Это очень объем"),
             (str(short_post), "Короткий пост"),
+            (str(comment), "Тестовый коммен"),
         ]
         for value, expected in expected_object_name:
             with self.subTest(value=value):

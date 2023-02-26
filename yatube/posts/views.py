@@ -10,6 +10,7 @@ from .models import Follow, Group, Post, User
 @cache_page(20, key_prefix="index_page")
 def index(request):
     """Главная страница."""
+
     posts = Post.objects.select_related("author", "group")
     page_obj = paginate(request, posts)
     context = {
@@ -21,6 +22,7 @@ def index(request):
 
 def group_posts(request, slug):
     """Страница постов одной группы."""
+
     group = get_object_or_404(Group, slug=slug)
     posts = group.posts.select_related("author")
     page_obj = paginate(request, posts)
@@ -34,6 +36,7 @@ def group_posts(request, slug):
 
 def profile(request, username):
     """Страница профайла пользователя."""
+
     author = get_object_or_404(User, username=username)
     post_list = author.posts.select_related("group")
     page_obj = paginate(request, post_list)
@@ -49,9 +52,10 @@ def profile(request, username):
 
 def post_detail(request, post_id):
     """Страница поста."""
+
     post = get_object_or_404(Post, id=post_id)
     comments = post.comments.select_related("author")
-    form = CommentForm(request.POST or None)
+    form = CommentForm
     context = {
         "title": f"Пост {post}",
         "post": post,
@@ -64,6 +68,7 @@ def post_detail(request, post_id):
 @login_required
 def post_create(request):
     """Страница добавления нового поста."""
+
     form = PostForm(request.POST or None, files=request.FILES or None)
     if form.is_valid():
         post = form.save(commit=False)
@@ -81,6 +86,7 @@ def post_create(request):
 @login_required
 def post_edit(request, post_id):
     """Страница редактирования поста."""
+
     post = get_object_or_404(Post, id=post_id)
     if post.author != request.user:
         return redirect("posts:post_detail", post_id=post_id)
@@ -100,6 +106,8 @@ def post_edit(request, post_id):
 
 @login_required
 def add_comment(request, post_id):
+    """Добавление комментария."""
+
     form = CommentForm(request.POST or None)
     if form.is_valid():
         comment = form.save(commit=False)
@@ -111,9 +119,10 @@ def add_comment(request, post_id):
 
 @login_required
 def follow_index(request):
+    """Страница постов на подписанных авторов."""
+
     user = request.user
-    authors = user.follower.values_list("author", flat=True)
-    posts_list = Post.objects.filter(author__id__in=authors)
+    posts_list = Post.objects.filter(author__following__user=user)
     page_obj = paginate(request, posts_list)
     context = {
         "title": "Избранные авторы",
@@ -124,6 +133,8 @@ def follow_index(request):
 
 @login_required
 def profile_follow(request, username):
+    """Подписаться на автора."""
+
     author = User.objects.get(username=username)
     user = request.user
     if author != user:
@@ -133,5 +144,7 @@ def profile_follow(request, username):
 
 @login_required
 def profile_unfollow(request, username):
+    """Отписка от автора."""
+
     Follow.objects.get(user=request.user, author__username=username).delete()
     return redirect("posts:profile", username=username)

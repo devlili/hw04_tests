@@ -23,9 +23,8 @@
           {{ comment.author.get_full_name }}
         </a>
       </h5>
-      <p>
-        {{ comment.text }} {{ comment.created|date:'d E Y' }}
-      </p>
+      <p>{{ comment.text|linebreaksbr }}</p>
+      <p>{{ comment.created|date:'d E Y' }}</p>
     </div>
   </div>
 {% endfor %}

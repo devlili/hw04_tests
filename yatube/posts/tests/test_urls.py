@@ -49,6 +49,7 @@ class URLTests(TestCase):
 
     def test_url_exists_at_desired_location(self):
         """Проверка общедоступных страницы."""
+
         for url in self.reverse_templates_names:
             with self.subTest(url=url):
                 response = self.client.get(url, follow=True)
@@ -60,6 +61,7 @@ class URLTests(TestCase):
 
     def test_url_exists_for_authorized_client(self):
         """Страницы доступны авторизованным пользователям."""
+
         for url in self.reverse_templates_names:
             with self.subTest(url=url):
                 response = self.authorized_client.get(url)
@@ -69,6 +71,7 @@ class URLTests(TestCase):
 
     def test_url_exists_for_author(self):
         """Страница /posts/<post_id>/edit/ доступна только автору поста."""
+
         user = User.objects.create_user(username="Lermontov")
         authorized_client = Client()
         authorized_client.force_login(user)
@@ -88,6 +91,7 @@ class URLTests(TestCase):
         """Страницы для неавторизованного пользователя перенаправят анонимного
         пользователя на страницу логина.
         """
+
         urls = (
             reverse(
                 "posts:post_edit",
@@ -103,6 +107,7 @@ class URLTests(TestCase):
 
     def test_urls_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
+
         cache.clear()
         for address, template in self.reverse_templates_names.items():
             with self.subTest(address=address):
@@ -115,6 +120,7 @@ class URLTests(TestCase):
 
     def test_unexisting_page(self):
         """Запрос к несуществующей странице."""
+        
         response = self.client.get("/unexisting_page/")
         self.assertEqual(
             response.status_code,
